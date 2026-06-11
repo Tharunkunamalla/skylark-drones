@@ -1,0 +1,12 @@
+test_dataset/
+train_dataset/
+*.zip
+.ipynb_checkpoints/
+__pycache__/
+*.png
+*.jpg
+*.jpeg
+*.json
+!predictions.json
+!curated_gcp_marks.json
+!gcp_marks.json
