@@ -112,24 +112,25 @@ def get_dataloaders(base_dir, json_path, batch_size=8, val_split=0.2, train_tran
 
     return train_loader, val_loader
 
+from transforms import get_train_transforms, get_val_transforms
+
 if __name__ == "__main__":
     # Test execution
     JSON_PATH = os.path.join("train_dataset", "train_dataset", "gcp_marks.json")
     BASE_DIR = os.path.join("train_dataset", "train_dataset")
 
-    # Simple resize transform for testing collation before transforms.py is built
-    def test_transform(image):
-        pil_img = Image.fromarray(image)
-        pil_img = pil_img.resize((512, 512))
-        return torch.tensor(np.array(pil_img), dtype=torch.float32).permute(2, 0, 1) / 255.0
+    # Define transforms
+    img_size = 512
+    train_tf = get_train_transforms(img_size=img_size)
+    val_tf = get_val_transforms(img_size=img_size)
 
-    print("Creating DataLoaders with a test resize transform...")
+    print("Creating DataLoaders with Albumentations transforms...")
     train_loader, val_loader = get_dataloaders(
         BASE_DIR, 
         JSON_PATH, 
         batch_size=4, 
-        train_transform=test_transform, 
-        val_transform=test_transform
+        train_transform=train_tf, 
+        val_transform=val_tf
     )
     
     # Load one batch
@@ -140,4 +141,36 @@ if __name__ == "__main__":
     print(f"  - Keypoint y shape: {batch['y'].shape} (type: {batch['y'].dtype})")
     print(f"  - Shape class shape: {batch['shape_class'].shape} (type: {batch['shape_class'].dtype})")
     print(f"  - Classes in batch: {batch['shape_class'].tolist()} -> {[REV_CLASS_MAPPING[cid] for cid in batch['shape_class'].tolist()]}")
-    print("DataLoader verification completed successfully.")
+
+    # Verify keypoint scaling on a single sample
+    train_keys, _, json_data = get_train_val_split(JSON_PATH, BASE_DIR, val_split=0.2)
+    sample_key = train_keys[0]
+    sample_val = json_data[sample_key]
+    
+    # Get original image dims
+    img_path = os.path.join(BASE_DIR, sample_key)
+    with Image.open(img_path) as img:
+        orig_w, orig_h = img.size
+        
+    orig_x = sample_val["mark"]["x"]
+    orig_y = sample_val["mark"]["y"]
+    
+    # Load sample via Dataset
+    dataset_sample = GCPDataset(BASE_DIR, [sample_key], json_data, transform=train_tf)[0]
+    scaled_x = dataset_sample["x"].item()
+    scaled_y = dataset_sample["y"].item()
+    
+    expected_x = orig_x * (img_size / orig_w)
+    expected_y = orig_y * (img_size / orig_h)
+    
+    print("\nVerifying GCP Keypoint Scaling Correctness:")
+    print(f"  - Original image shape: {orig_w}x{orig_h}")
+    print(f"  - Target image shape: {img_size}x{img_size}")
+    print(f"  - Original keypoint coords: ({orig_x:.3f}, {orig_y:.3f})")
+    print(f"  - Scaled keypoint coords:   ({scaled_x:.3f}, {scaled_y:.3f})")
+    print(f"  - Expected scaled coords:   ({expected_x:.3f}, {expected_y:.3f})")
+    
+    # Assert they are close (allowing floating point delta)
+    assert abs(scaled_x - expected_x) < 1e-2, f"X scaling error: got {scaled_x}, expected {expected_x}"
+    assert abs(scaled_y - expected_y) < 1e-2, f"Y scaling error: got {scaled_y}, expected {expected_y}"
+    print("  => GCP keypoint scaling is mathematically verified and correct!")
