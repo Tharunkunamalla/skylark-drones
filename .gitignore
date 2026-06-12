@@ -1,8 +1,10 @@
 test_dataset/
 train_dataset/
 *.zip
+*.pth
 .ipynb_checkpoints/
 __pycache__/
+
 *.png
 *.jpg
 *.jpeg
