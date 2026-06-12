@@ -1,0 +1,30 @@
+============================================================
+        AERIAL GCP MULTITASK BASELINE EVALUATION REPORT
+============================================================
+Model Checkpoint: best_model.pth
+Validation Samples: 123
+Resized Input Size: 224x224
+------------------------------------------------------------
+KEYPOINT LOCALIZATION METRICS (in original pixel resolution):
+  - Mean Pixel Error:   1137.78 px
+  - Median Pixel Error: 1105.06 px
+  - PCK@10 Accuracy:     0.00 %
+  - PCK@25 Accuracy:     0.00 %
+  - PCK@50 Accuracy:     0.00 %
+------------------------------------------------------------
+SHAPE CLASSIFICATION METRICS:
+  - Accuracy:           0.9675 (96.75%)
+  - Macro F1-Score:     0.9415
+
+Detailed Classification Report:
+              precision    recall  f1-score   support
+
+       Cross       0.91      0.83      0.87        12
+      Square       0.96      0.98      0.97        54
+     L-Shape       0.98      0.98      0.98        57
+
+    accuracy                           0.97       123
+   macro avg       0.95      0.93      0.94       123
+weighted avg       0.97      0.97      0.97       123
+
+============================================================
