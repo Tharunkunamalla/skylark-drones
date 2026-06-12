@@ -1,0 +1,10 @@
+torch==2.4.1
+torchvision==0.19.1
+numpy==2.4.4
+albumentations==2.0.8
+opencv-python==4.10.0.84
+scikit-learn==1.8.0
+pillow==10.4.0
+matplotlib==3.9.2
+tqdm==4.67.1
+nbformat==5.10.4
