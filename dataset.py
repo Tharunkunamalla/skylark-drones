@@ -30,30 +30,23 @@ class GCPDataset(Dataset):
         key = self.keys[idx]
         val = self.json_data[key]
         
-        # Load image
         img_path = os.path.join(self.base_dir, key)
-        # Using PIL to open and converting to numpy array
         image = np.array(Image.open(img_path).convert("RGB"))
         
-        # Keypoints and shape class
         x = val["mark"]["x"]
         y = val["mark"]["y"]
         shape_name = val["verified_shape"]
         shape_class = CLASS_MAPPING[shape_name]
 
-        # Apply transforms if provided
         if self.transform:
-            # Check if using Albumentations
             if hasattr(self.transform, '__module__') and 'albumentations' in self.transform.__module__:
                 transformed = self.transform(image=image, keypoints=[(x, y)])
                 image = transformed["image"]
                 if len(transformed["keypoints"]) > 0:
                     x, y = transformed["keypoints"][0]
             else:
-                # Fallback to basic torchvision-like transform (or custom callable)
                 image = self.transform(image)
         else:
-            # Default to converting image to float tensor normalized to [0, 1]
             image = torch.tensor(image, dtype=torch.float32).permute(2, 0, 1) / 255.0
 
         return {
@@ -71,7 +64,6 @@ def get_train_val_split(json_path, base_dir, val_split=0.2, seed=42):
     with open(json_path, "r") as f:
         data = json.load(f)
 
-    # Filter keys based on file existence and valid shape annotation
     valid_keys = []
     labels = []
     
@@ -85,7 +77,6 @@ def get_train_val_split(json_path, base_dir, val_split=0.2, seed=42):
     print(f"  - Labeled images in JSON: {len(data)}")
     print(f"  - Valid and physically existing images: {len(valid_keys)}")
 
-    # Perform stratified train/validation split
     train_keys, val_keys = train_test_split(
         valid_keys,
         test_size=val_split,
@@ -115,11 +106,9 @@ def get_dataloaders(base_dir, json_path, batch_size=8, val_split=0.2, train_tran
 from transforms import get_train_transforms, get_val_transforms
 
 if __name__ == "__main__":
-    # Test execution
     JSON_PATH = os.path.join("train_dataset", "train_dataset", "gcp_marks.json")
     BASE_DIR = os.path.join("train_dataset", "train_dataset")
 
-    # Define transforms
     img_size = 512
     train_tf = get_train_transforms(img_size=img_size)
     val_tf = get_val_transforms(img_size=img_size)
@@ -133,7 +122,6 @@ if __name__ == "__main__":
         val_transform=val_tf
     )
     
-    # Load one batch
     batch = next(iter(train_loader))
     print("\nVerifying DataLoader sample batch:")
     print(f"  - Image batch shape: {batch['image'].shape} (type: {batch['image'].dtype})")
@@ -142,12 +130,10 @@ if __name__ == "__main__":
     print(f"  - Shape class shape: {batch['shape_class'].shape} (type: {batch['shape_class'].dtype})")
     print(f"  - Classes in batch: {batch['shape_class'].tolist()} -> {[REV_CLASS_MAPPING[cid] for cid in batch['shape_class'].tolist()]}")
 
-    # Verify keypoint scaling on a single sample
     train_keys, _, json_data = get_train_val_split(JSON_PATH, BASE_DIR, val_split=0.2)
     sample_key = train_keys[0]
     sample_val = json_data[sample_key]
     
-    # Get original image dims
     img_path = os.path.join(BASE_DIR, sample_key)
     with Image.open(img_path) as img:
         orig_w, orig_h = img.size
@@ -155,7 +141,6 @@ if __name__ == "__main__":
     orig_x = sample_val["mark"]["x"]
     orig_y = sample_val["mark"]["y"]
     
-    # Load sample via Dataset
     dataset_sample = GCPDataset(BASE_DIR, [sample_key], json_data, transform=train_tf)[0]
     scaled_x = dataset_sample["x"].item()
     scaled_y = dataset_sample["y"].item()
@@ -170,7 +155,7 @@ if __name__ == "__main__":
     print(f"  - Scaled keypoint coords:   ({scaled_x:.3f}, {scaled_y:.3f})")
     print(f"  - Expected scaled coords:   ({expected_x:.3f}, {expected_y:.3f})")
     
-    # Assert they are close (allowing floating point delta)
+    # Validate keypoint mapping
     assert abs(scaled_x - expected_x) < 1e-2, f"X scaling error: got {scaled_x}, expected {expected_x}"
     assert abs(scaled_y - expected_y) < 1e-2, f"Y scaling error: got {scaled_y}, expected {expected_y}"
     print("  => GCP keypoint scaling is mathematically verified and correct!")
