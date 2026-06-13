@@ -35,7 +35,6 @@ def find_test_images(test_dir):
     return abs_paths, rel_paths
 
 def main():
-    # Configuration
     TEST_DIR = os.path.join("test_dataset", "test_dataset")
     WEIGHTS_PATH = "best_model.pth"
     OUTPUT_JSON = "predictions.json"
@@ -44,7 +43,6 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # Find test images
     print(f"Scanning test dataset directory: {TEST_DIR}...")
     abs_paths, rel_paths = find_test_images(TEST_DIR)
     print(f"Found {len(abs_paths)} test images.")
@@ -53,10 +51,8 @@ def main():
         print("Error: No test images found.")
         return
 
-    # Load transforms
     val_tf = get_val_transforms(img_size=IMG_SIZE)
 
-    # Initialize model
     print("Loading model weights...")
     model = GCPMultitaskModel(num_classes=3, pretrained=False)
     model.load_state_dict(torch.load(WEIGHTS_PATH, map_location=device))
@@ -68,33 +64,25 @@ def main():
     print("Running inference on test dataset...")
     with torch.no_grad():
         for abs_path, rel_path in tqdm(zip(abs_paths, rel_paths), total=len(abs_paths)):
-            # Get original size from PIL
             with Image.open(abs_path) as img:
                 orig_w, orig_h = img.size
                 image_np = np.array(img.convert("RGB"))
 
-            # Apply val transforms.
-            # Albumentations expects 'keypoints' parameter because we configured it in transforms.py.
-            # To run image-only transform, we pass dummy keypoint, or we can use the transform safely.
+            # Pass a dummy keypoint to satisfy Albumentations validation requirements
             transformed = val_tf(image=image_np, keypoints=[(0, 0)])
-            image_tensor = transformed["image"].unsqueeze(0).to(device) # Shape: [1, 3, H, W]
+            image_tensor = transformed["image"].unsqueeze(0).to(device)
 
-            # Model prediction
             coord_pred, class_logits = model(image_tensor)
 
-            # Get predicted normalized coordinates
             pred_x_norm = coord_pred[0, 0].item()
             pred_y_norm = coord_pred[0, 1].item()
 
-            # Map predicted coords back to original resolution space
             pred_x_orig = pred_x_norm * orig_w
             pred_y_orig = pred_y_norm * orig_h
 
-            # Shape prediction
             pred_class_idx = torch.argmax(class_logits, dim=1).item()
             pred_shape_name = SHAPE_CLASSES[pred_class_idx]
 
-            # Format entry
             predictions[rel_path] = {
                 "mark": {
                     "x": float(np.round(pred_x_orig, 2)),
@@ -103,7 +91,6 @@ def main():
                 "verified_shape": pred_shape_name
             }
 
-    # Save to JSON
     print(f"Saving predictions to {OUTPUT_JSON}...")
     with open(OUTPUT_JSON, "w") as f:
         json.dump(predictions, f, indent=4)
