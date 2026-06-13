@@ -4,8 +4,6 @@ from albumentations.pytorch import ToTensorV2
 def get_train_transforms(img_size=512):
     """
     Returns train data transforms with keypoint scaling.
-    We can add more augmentations here during Phase 4 (training) if needed,
-    such as random brightness/contrast, horizontal flips (with keypoint adjustments), etc.
     """
     return A.Compose(
         [
