@@ -27,7 +27,6 @@ def run_evaluation(base_dir, json_path, model_weights_path, img_size=224):
     model = model.to(device)
     model.eval()
 
-    # Track metrics
     pixel_errors = []
     all_class_targets = []
     all_class_preds = []
@@ -38,43 +37,34 @@ def run_evaluation(base_dir, json_path, model_weights_path, img_size=224):
             key = val_keys[idx]
             val = json_data[key]
             
-            # Original image shape
             img_path = os.path.join(base_dir, key)
             with Image.open(img_path) as img:
                 orig_w, orig_h = img.size
                 
-            # Ground truth in original resolution space
             orig_x_gt = val["mark"]["x"]
             orig_y_gt = val["mark"]["y"]
             shape_gt = CLASS_MAPPING[val["verified_shape"]]
 
-            # Model input
             sample = dataset[idx]
-            image_tensor = sample["image"].unsqueeze(0).to(device) # Shape: [1, 3, H, W]
+            image_tensor = sample["image"].unsqueeze(0).to(device)
 
-            # Forward pass
             coord_pred, class_logits = model(image_tensor)
             
-            # Extract outputs
             pred_x_norm = coord_pred[0, 0].item()
             pred_y_norm = coord_pred[0, 1].item()
             
-            # Convert predicted normalized coords back to original resolution space
             pred_x_orig = pred_x_norm * orig_w
             pred_y_orig = pred_y_norm * orig_h
             
-            # Compute Euclidean distance (pixel error) in original resolution space
             dist = np.sqrt((pred_x_orig - orig_x_gt)**2 + (pred_y_orig - orig_y_gt)**2)
             pixel_errors.append(dist)
             
-            # Classification pred
             class_pred = torch.argmax(class_logits, dim=1).item()
             all_class_preds.append(class_pred)
             all_class_targets.append(shape_gt)
 
     pixel_errors = np.array(pixel_errors)
     
-    # Calculate metrics
     mean_pixel_error = np.mean(pixel_errors)
     median_pixel_error = np.median(pixel_errors)
     
@@ -85,7 +75,6 @@ def run_evaluation(base_dir, json_path, model_weights_path, img_size=224):
     accuracy = accuracy_score(all_class_targets, all_class_preds)
     macro_f1 = f1_score(all_class_targets, all_class_preds, average="macro")
     
-    # Generate report
     report_text = []
     report_text.append("=" * 60)
     report_text.append("        AERIAL GCP MULTITASK BASELINE EVALUATION REPORT")
@@ -115,7 +104,6 @@ def run_evaluation(base_dir, json_path, model_weights_path, img_size=224):
     
     print("\n" + report_string)
     
-    # Save to file
     report_save_path = "evaluation_report.txt"
     with open(report_save_path, "w") as f:
         f.write(report_string)
